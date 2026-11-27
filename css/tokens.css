@@ -1,0 +1,111 @@
+/* ==========================================================================
+   Cheshire Custodial Inventory — Design Tokens (Native Dark Mode)
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Core Dark Canvas & Velvet Surfaces */
+  --bg-canvas: #0c0813;
+  --bg-canvas-elevated: #120c1c;
+  --bg-surface: #171024;
+  --bg-surface-raised: #201732;
+  --bg-surface-hover: #291e3f;
+  --bg-input: #110b1b;
+
+  /* Cheshire Cat Signature Palette */
+  --cheshire-rose: #ec4899;
+  --cheshire-rose-bright: #f472b6;
+  --cheshire-rose-soft: rgba(236, 72, 153, 0.16);
+  --cheshire-plum: #a855f7;
+  --cheshire-plum-deep: #7e22ce;
+  --cheshire-plum-soft: rgba(168, 85, 247, 0.16);
+  --cheshire-gold: #facc15;
+  --cheshire-gold-soft: rgba(250, 204, 21, 0.15);
+
+  /* Semantic Status Colors */
+  --status-healthy: #34d399;
+  --status-healthy-soft: rgba(52, 211, 153, 0.14);
+  --status-below-par: #60a5fa;
+  --status-below-par-soft: rgba(96, 165, 250, 0.15);
+  --status-low: #facc15;
+  --status-low-soft: rgba(250, 204, 21, 0.15);
+  --status-vanished: #fb7185;
+  --status-vanished-soft: rgba(251, 113, 133, 0.16);
+
+  /* Typography Ink */
+  --ink-primary: #f6f1fc;
+  --ink-secondary: #b9aacf;
+  --ink-muted: #84759c;
+  --ink-on-accent: #12091b;
+
+  /* Hairlines & Borders */
+  --border-subtle: rgba(235, 218, 255, 0.08);
+  --border-default: rgba(235, 218, 255, 0.14);
+  --border-strong: rgba(236, 72, 153, 0.36);
+
+  /* Building Accent Swatches */
+  --accent-magenta: #ec4899;
+  --accent-plum: #a855f7;
+  --accent-gold: #facc15;
+  --accent-teal: #2dd4bf;
+  --accent-coral: #fb7185;
+  --accent-indigo: #818cf8;
+
+  /* Typography Families */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Shadows & Depth */
+  --shadow-sm: 0 2px 8px rgba(4, 2, 10, 0.4);
+  --shadow-md: 0 10px 28px rgba(4, 2, 10, 0.55);
+  --shadow-lg: 0 20px 48px rgba(3, 1, 8, 0.72);
+  --glow-rose: 0 0 20px rgba(236, 72, 153, 0.24);
+  --glow-gold: 0 0 16px rgba(250, 204, 21, 0.24);
+
+  /* Layout Dimensions */
+  --sidebar-width: 268px;
+  --mobile-nav-height: 70px;
+  --content-max-width: 1220px;
+
+  /* Motion */
+  --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 140ms;
+  --dur-med: 240ms;
+}
+
+/* Signature Cheshire Animations */
+@keyframes cheshire-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.08); }
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

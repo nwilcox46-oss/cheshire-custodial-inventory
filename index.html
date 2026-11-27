@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#171024" />
+    <meta
+      name="description"
+      content="Cheshire Cat themed custodial inventory tracker with multi-building rollups, storage area tracking, low-stock alerts, par-level restock lists, and offline PWA support."
+    />
+    <title>Cheshire Custodial Inventory</title>
+
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./assets/icon-192.png" />
+    <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="./css/tokens.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="cheshire-stripe-bar" aria-hidden="true"></div>
+
+    <!-- Mobile Sticky Top Bar -->
+    <header class="mobile-topbar">
+      <div class="brand-lockup">
+        <div class="brand-emblem" data-cheshire-emblem="26"></div>
+        <div class="brand-text">
+          <div class="brand-title">Cheshire Custodial</div>
+          <div class="brand-subtitle">Supply Rollup Tracker</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" data-action="open-add-building">+ Building</button>
+    </header>
+
+    <div class="app-shell">
+      <!-- Desktop Sidebar Rail -->
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand-lockup">
+          <div class="brand-emblem" data-cheshire-emblem="32"></div>
+          <div class="brand-text">
+            <div class="brand-title">Cheshire Custodial</div>
+            <div class="brand-subtitle">Wonderland Supply Rollups</div>
+          </div>
+        </div>
+
+        <nav>
+          <ul id="sidebar-nav" class="nav-list"></ul>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button id="btn-sidebar-add-item" class="btn btn-sm" data-action="open-add-item" style="width: 100%;">
+            + Quick Add Supply Item
+          </button>
+          <p class="sidebar-tip">Saved locally &amp; offline-ready. Export JSON in History &amp; Backup anytime.</p>
+        </div>
+      </aside>
+
+      <!-- Main Workspace -->
+      <main id="app-main" class="main-workspace" tabindex="-1"></main>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav id="mobile-bottom-nav" class="mobile-bottom-nav" aria-label="Mobile navigation"></nav>
+
+    <!-- Accessible Modal Root -->
+    <dialog id="cheshire-modal" class="cheshire-modal" aria-modal="true"></dialog>
+
+    <!-- Toast Notification Region -->
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
