@@ -473,3 +473,39 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+
+// One-tap Android / Desktop PWA install prompt
+let deferredInstallPrompt = null;
+const installButtons = Array.from(document.querySelectorAll('[data-install-app]'));
+
+function setInstallButtonsVisible(visible) {
+  for (const btn of installButtons) {
+    btn.hidden = !visible;
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  setInstallButtonsVisible(true);
+});
+
+for (const btn of installButtons) {
+  btn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    setInstallButtonsVisible(false);
+    if (outcome === 'accepted') {
+      showToast('Installing Cheshire Custodial Inventory...', 'gold');
+    }
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  setInstallButtonsVisible(false);
+  showToast('Cheshire Custodial Inventory installed on your device!', 'gold');
+});
+

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#171024" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Cheshire Inv" />
     <meta
       name="description"
       content="Cheshire Cat themed custodial inventory tracker with multi-building rollups, storage area tracking, low-stock alerts, par-level restock lists, and offline PWA support."
@@ -37,7 +40,10 @@
           <div class="brand-subtitle">Supply Rollup Tracker</div>
         </div>
       </div>
-      <button class="btn btn-primary btn-sm" data-action="open-add-building">+ Building</button>
+      <div class="action-group" style="gap: 6px;">
+        <button id="btn-mobile-install-app" class="btn btn-sm" data-install-app hidden>Install App</button>
+        <button class="btn btn-primary btn-sm" data-action="open-add-building">+ Building</button>
+      </div>
     </header>
 
     <div class="app-shell">
@@ -56,6 +62,9 @@
         </nav>
 
         <div class="sidebar-footer">
+          <button id="btn-sidebar-install-app" class="btn btn-primary btn-sm" data-install-app hidden style="width: 100%; margin-bottom: 8px;">
+            Install Android / Desktop App
+          </button>
           <button id="btn-sidebar-add-item" class="btn btn-sm" data-action="open-add-item" style="width: 100%;">
             + Quick Add Supply Item
           </button>
