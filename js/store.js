@@ -153,10 +153,12 @@ export function validateAndNormalizeState(raw) {
       normalizedStock[areaId] = {};
       for (const [itemId, entry] of Object.entries(itemMap)) {
         if (!validItemIds.has(itemId) || !entry || typeof entry !== 'object') continue;
+        const notApplicable = Boolean(entry.notApplicable);
         normalizedStock[areaId][itemId] = {
-          quantity: toNonNegativeNumber(entry.quantity, 0),
+          quantity: notApplicable ? 0 : toNonNegativeNumber(entry.quantity, 0),
           lowThresholdOverride: toOptionalNonNegativeNumber(entry.lowThresholdOverride),
           parLevelOverride: toOptionalNonNegativeNumber(entry.parLevelOverride),
+          notApplicable,
           updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : nowISO(),
         };
       }
@@ -250,6 +252,7 @@ export function createStore(storageAdapter = getDefaultStorage(), storageKey = S
         quantity: 0,
         lowThresholdOverride: null,
         parLevelOverride: null,
+        notApplicable: false,
         updatedAt: nowISO(),
       };
     }
@@ -539,12 +542,16 @@ export function createStore(storageAdapter = getDefaultStorage(), storageKey = S
       const building = state.buildings.find((b) => b.id === area.buildingId);
       const cell = ensureStockCell(storageAreaId, itemId);
       const before = cell.quantity;
+      const wasNA = Boolean(cell.notApplicable);
       const after = toNonNegativeNumber(quantity, 0);
       const delta = Math.round((after - before) * 100) / 100;
 
-      if (delta === 0 && !note) return cell;
+      if (delta === 0 && !note && !(wasNA && after > 0)) return cell;
 
       cell.quantity = after;
+      if (after > 0 && cell.notApplicable) {
+        cell.notApplicable = false;
+      }
       cell.updatedAt = nowISO();
 
       const sign = delta > 0 ? `+${delta}` : `${delta}`;
@@ -573,6 +580,41 @@ export function createStore(storageAdapter = getDefaultStorage(), storageKey = S
       const current = cell ? cell.quantity : 0;
       const next = Math.max(0, Math.round((current + Number(delta)) * 100) / 100);
       return this.setStock({ storageAreaId, itemId, quantity: next, note });
+    },
+
+    setAreaNotApplicable({ storageAreaId, itemId, notApplicable, note = '' }) {
+      const area = state.storageAreas.find((a) => a.id === storageAreaId);
+      const item = state.items.find((i) => i.id === itemId);
+      if (!area) throw new Error('Storage area not found.');
+      if (!item) throw new Error('Supply item not found.');
+
+      const cell = ensureStockCell(storageAreaId, itemId);
+      const nextNA = Boolean(notApplicable);
+      if (Boolean(cell.notApplicable) === nextNA) return cell;
+
+      cell.notApplicable = nextNA;
+      if (nextNA) {
+        cell.quantity = 0;
+      }
+      cell.updatedAt = nowISO();
+
+      const building = state.buildings.find((b) => b.id === area.buildingId);
+      pushLog({
+        type: 'stock',
+        action: nextNA ? 'mark_area_na' : 'clear_area_na',
+        buildingId: area.buildingId,
+        buildingName: building?.name || '',
+        areaId: area.id,
+        areaName: area.name,
+        itemId: item.id,
+        itemName: item.name,
+        summary: nextNA
+          ? `Marked ${item.name} as N/A in ${building?.name || 'Building'} → ${area.name}`
+          : `Restored ${item.name} as tracked in ${building?.name || 'Building'} → ${area.name}`,
+        note: String(note || '').trim(),
+      });
+      persistAndNotify();
+      return cell;
     },
 
     setAreaTargets({ storageAreaId, itemId, lowThresholdOverride, parLevelOverride }) {
@@ -663,6 +705,7 @@ export function createStore(storageAdapter = getDefaultStorage(), storageKey = S
       fromCell.quantity = Math.round((fromBefore - qty) * 100) / 100;
       fromCell.updatedAt = ts;
       toCell.quantity = Math.round((toBefore + qty) * 100) / 100;
+      toCell.notApplicable = false;
       toCell.updatedAt = ts;
 
       const fromBuilding = state.buildings.find((b) => b.id === fromArea.buildingId);

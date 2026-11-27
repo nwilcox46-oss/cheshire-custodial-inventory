@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cheshire-custodial-v1';
+const CACHE_NAME = 'cheshire-custodial-v2';
 
 const PRECACHE_ASSETS = [
   './',

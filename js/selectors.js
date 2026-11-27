@@ -10,8 +10,13 @@ import { STATUS_META } from './constants.js';
  */
 export function getStockEntry(state, storageAreaId, itemId) {
   const entry = state.stock?.[storageAreaId]?.[itemId];
+  const notApplicable = Boolean(entry?.notApplicable);
   return {
-    quantity: Number.isFinite(entry?.quantity) ? Math.max(0, entry.quantity) : 0,
+    quantity: notApplicable
+      ? 0
+      : Number.isFinite(entry?.quantity)
+        ? Math.max(0, entry.quantity)
+        : 0,
     lowThresholdOverride:
       entry?.lowThresholdOverride === null || entry?.lowThresholdOverride === undefined
         ? null
@@ -20,6 +25,7 @@ export function getStockEntry(state, storageAreaId, itemId) {
       entry?.parLevelOverride === null || entry?.parLevelOverride === undefined
         ? null
         : Math.max(0, Number(entry.parLevelOverride)),
+    notApplicable,
     updatedAt: entry?.updatedAt || null,
   };
 }
@@ -60,27 +66,31 @@ export function getAreaInventory(state, storageAreaId) {
 
   const items = state.items.map((item) => {
     const entry = getStockEntry(state, storageAreaId, item.id);
-    const hasAreaLow = entry.lowThresholdOverride !== null;
-    const hasAreaPar = entry.parLevelOverride !== null;
+    const hasAreaLow = !entry.notApplicable && entry.lowThresholdOverride !== null;
+    const hasAreaPar = !entry.notApplicable && entry.parLevelOverride !== null;
     const effectiveLow = hasAreaLow ? entry.lowThresholdOverride : null;
     const effectivePar = hasAreaPar ? entry.parLevelOverride : null;
 
-    // Area-level status only flags low/below-par if the area defines its own targets,
-    // or flags vanished when tracked explicitly at 0.
+    // Area-level status marks N/A explicitly when excluded from this storage location,
+    // otherwise flags low/below-par when targets exist or vanished at 0.
     let status = 'healthy';
-    if (hasAreaLow || hasAreaPar) {
+    if (entry.notApplicable) {
+      status = 'na';
+    } else if (hasAreaLow || hasAreaPar) {
       status = getStockStatus(entry.quantity, effectiveLow ?? 0, effectivePar ?? 0);
     } else if (entry.quantity === 0) {
       status = 'vanished';
     }
 
-    const restockNeeded = hasAreaPar ? Math.max(0, effectivePar - entry.quantity) : 0;
+    const restockNeeded =
+      !entry.notApplicable && hasAreaPar ? Math.max(0, effectivePar - entry.quantity) : 0;
 
     return {
       item,
       quantity: entry.quantity,
       lowThresholdOverride: entry.lowThresholdOverride,
       parLevelOverride: entry.parLevelOverride,
+      notApplicable: entry.notApplicable,
       hasAreaTargets: hasAreaLow || hasAreaPar,
       status,
       restockNeeded,
@@ -88,10 +98,11 @@ export function getAreaInventory(state, storageAreaId) {
     };
   });
 
-  const totalUnits = items.reduce((sum, row) => sum + row.quantity, 0);
-  const stockedItemCount = items.filter((row) => row.quantity > 0).length;
+  const totalUnits = items.reduce((sum, row) => sum + (row.notApplicable ? 0 : row.quantity), 0);
+  const stockedItemCount = items.filter((row) => !row.notApplicable && row.quantity > 0).length;
+  const naCount = items.filter((row) => row.notApplicable).length;
   const lowAlertCount = items.filter(
-    (row) => row.hasAreaTargets && (row.status === 'vanished' || row.status === 'low')
+    (row) => !row.notApplicable && row.hasAreaTargets && (row.status === 'vanished' || row.status === 'low')
   ).length;
 
   return {
@@ -99,6 +110,7 @@ export function getAreaInventory(state, storageAreaId) {
     items,
     totalUnits,
     stockedItemCount,
+    naCount,
     lowAlertCount,
   };
 }
@@ -119,18 +131,22 @@ export function getBuildingRollup(state, buildingId) {
     let areaParSum = 0;
     let anyAreaLowOverride = false;
     let anyAreaParOverride = false;
+    let naAreaCount = 0;
 
     const areaBreakdown = areas.map((area) => {
       const entry = getStockEntry(state, area.id, item.id);
-      totalQuantity += entry.quantity;
-
-      if (entry.lowThresholdOverride !== null) {
-        areaLowSum += entry.lowThresholdOverride;
-        anyAreaLowOverride = true;
-      }
-      if (entry.parLevelOverride !== null) {
-        areaParSum += entry.parLevelOverride;
-        anyAreaParOverride = true;
+      if (entry.notApplicable) {
+        naAreaCount += 1;
+      } else {
+        totalQuantity += entry.quantity;
+        if (entry.lowThresholdOverride !== null) {
+          areaLowSum += entry.lowThresholdOverride;
+          anyAreaLowOverride = true;
+        }
+        if (entry.parLevelOverride !== null) {
+          areaParSum += entry.parLevelOverride;
+          anyAreaParOverride = true;
+        }
       }
 
       return {
@@ -140,10 +156,12 @@ export function getBuildingRollup(state, buildingId) {
         quantity: entry.quantity,
         lowThresholdOverride: entry.lowThresholdOverride,
         parLevelOverride: entry.parLevelOverride,
+        notApplicable: entry.notApplicable,
         updatedAt: entry.updatedAt,
       };
     });
 
+    const allAreasNA = areas.length > 0 && naAreaCount === areas.length;
     const buildingOverride = buildingTargetMap[item.id] || {};
     const hasBuildingLow =
       buildingOverride.lowThresholdOverride !== null &&
@@ -178,17 +196,20 @@ export function getBuildingRollup(state, buildingId) {
       parSource = 'catalog';
     }
 
-    const status = getStockStatus(totalQuantity, effectiveLowThreshold, effectiveParLevel);
-    const restockNeeded = Math.max(0, effectiveParLevel - totalQuantity);
+    const status = allAreasNA
+      ? 'na'
+      : getStockStatus(totalQuantity, effectiveLowThreshold, effectiveParLevel);
+    const restockNeeded = allAreasNA ? 0 : Math.max(0, effectiveParLevel - totalQuantity);
 
     return {
       item,
       totalQuantity,
-      effectiveLowThreshold,
-      effectiveParLevel,
+      effectiveLowThreshold: allAreasNA ? 0 : effectiveLowThreshold,
+      effectiveParLevel: allAreasNA ? 0 : effectiveParLevel,
       lowSource,
       parSource,
       hasBuildingOverride: hasBuildingLow || hasBuildingPar,
+      allAreasNA,
       status,
       restockNeeded,
       areaBreakdown,
@@ -196,11 +217,12 @@ export function getBuildingRollup(state, buildingId) {
   });
 
   const totalUnits = items.reduce((sum, row) => sum + row.totalQuantity, 0);
-  const stockedItemCount = items.filter((row) => row.totalQuantity > 0).length;
+  const stockedItemCount = items.filter((row) => !row.allAreasNA && row.totalQuantity > 0).length;
   const vanishedCount = items.filter((row) => row.status === 'vanished').length;
   const lowCount = items.filter((row) => row.status === 'low').length;
   const belowParCount = items.filter((row) => row.status === 'below-par').length;
   const healthyCount = items.filter((row) => row.status === 'healthy').length;
+  const naCount = items.filter((row) => row.status === 'na').length;
   const restockItemCount = items.filter((row) => row.restockNeeded > 0).length;
   const totalRestockUnits = items.reduce((sum, row) => sum + row.restockNeeded, 0);
 
@@ -215,6 +237,7 @@ export function getBuildingRollup(state, buildingId) {
     lowCount,
     belowParCount,
     healthyCount,
+    naCount,
     alertCount: vanishedCount + lowCount,
     restockItemCount,
     totalRestockUnits,
@@ -244,7 +267,9 @@ export function getCampusRollup(state) {
       const status = row ? row.status : 'vanished';
 
       totalQuantity += qty;
-      totalPar += par;
+      if (status !== 'na') {
+        totalPar += par;
+      }
       totalRestockNeeded += needed;
       if (status === 'vanished') buildingsVanished += 1;
       if (status === 'low') buildingsLow += 1;

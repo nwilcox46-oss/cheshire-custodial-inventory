@@ -474,13 +474,13 @@ function renderBuildingRollupPanel(bRollup, uiState) {
                                 .map(
                                   (ab) => `
                                 <button
-                                  class="breakdown-pill"
+                                  class="breakdown-pill ${ab.notApplicable ? 'is-na' : ''}"
                                   data-action="select-area-tab"
                                   data-area-tab="${escapeHtml(ab.areaId)}"
                                   title="Open ${escapeHtml(ab.areaName)}"
                                 >
                                   <span>${escapeHtml(ab.areaName)}:</span>
-                                  <strong>${formatQty(ab.quantity)}</strong>
+                                  <strong>${ab.notApplicable ? 'N/A' : formatQty(ab.quantity)}</strong>
                                 </button>`
                                 )
                                 .join('')}
@@ -500,17 +500,25 @@ function renderBuildingRollupPanel(bRollup, uiState) {
                           <div class="item-cell-meta">${escapeHtml(row.item.category)} · ${escapeHtml(row.item.unit)}</div>
                         </td>
                         <td>
-                          <div class="mono-num" style="font-size: 1.12rem; font-weight: 700;">
-                            ${formatQty(row.totalQuantity)} <span style="font-size: 0.78rem; color: var(--ink-muted); font-weight: 500;">${escapeHtml(row.item.unit)}</span>
-                          </div>
-                          <div style="width: 96px; margin-top: 6px;">${renderParMeter(row.totalQuantity, row.effectiveParLevel, row.status)}</div>
+                          ${
+                            row.allAreasNA
+                              ? `<div class="mono-num" style="font-size: 1rem; font-weight: 700; color: var(--ink-muted);">N/A</div>`
+                              : `<div class="mono-num" style="font-size: 1.12rem; font-weight: 700;">
+                                  ${formatQty(row.totalQuantity)} <span style="font-size: 0.78rem; color: var(--ink-muted); font-weight: 500;">${escapeHtml(row.item.unit)}</span>
+                                </div>
+                                <div style="width: 96px; margin-top: 6px;">${renderParMeter(row.totalQuantity, row.effectiveParLevel, row.status)}</div>`
+                          }
                         </td>
                         <td>${breakdownHtml}</td>
                         <td>
-                          <div class="mono-num" style="font-size: 0.85rem;">
-                            Low ${formatQty(row.effectiveLowThreshold)} / Par ${formatQty(row.effectiveParLevel)}
-                          </div>
-                          <div class="item-cell-meta">${sourceTag}${row.restockNeeded > 0 ? ` · Need +${formatQty(row.restockNeeded)}` : ''}</div>
+                          ${
+                            row.allAreasNA
+                              ? `<div class="item-cell-meta">Not stored in this building</div>`
+                              : `<div class="mono-num" style="font-size: 0.85rem;">
+                                  Low ${formatQty(row.effectiveLowThreshold)} / Par ${formatQty(row.effectiveParLevel)}
+                                </div>
+                                <div class="item-cell-meta">${sourceTag}${row.restockNeeded > 0 ? ` · Need +${formatQty(row.restockNeeded)}` : ''}</div>`
+                          }
                         </td>
                         <td>${renderStatusPill(row.status)}</td>
                         <td>
@@ -543,13 +551,17 @@ function renderStorageAreaPanel(state, building, areaId, uiState) {
   const search = (uiState.areaItemSearch || '').trim().toLowerCase();
   const filter = uiState.areaItemFilter || 'all';
   const canTransfer = state.storageAreas.length >= 2;
+  const emptyOrLowCount = items.filter(
+    (row) => !row.notApplicable && (row.quantity === 0 || row.status === 'low' || row.status === 'below-par')
+  ).length;
 
   const filteredItems = items.filter((row) => {
     if (search && !row.item.name.toLowerCase().includes(search) && !row.item.category.toLowerCase().includes(search)) {
       return false;
     }
-    if (filter === 'stocked') return row.quantity > 0;
-    if (filter === 'alerts') return row.quantity === 0 || row.status === 'low' || row.status === 'below-par';
+    if (filter === 'stocked') return !row.notApplicable && row.quantity > 0;
+    if (filter === 'alerts') return !row.notApplicable && (row.quantity === 0 || row.status === 'low' || row.status === 'below-par');
+    if (filter === 'na') return row.notApplicable;
     return true;
   });
 
@@ -559,7 +571,7 @@ function renderStorageAreaPanel(state, building, areaId, uiState) {
         <div>
           <h2 class="panel-title">${escapeHtml(area.name)}</h2>
           <p class="panel-subtitle">
-            ${area.floorOrZone ? `${escapeHtml(area.floorOrZone)} · ` : ''}${formatQty(areaInv.totalUnits)} total units · ${areaInv.stockedItemCount} stocked supply type${areaInv.stockedItemCount === 1 ? '' : 's'}${area.notes ? ` · ${escapeHtml(area.notes)}` : ''}
+            ${area.floorOrZone ? `${escapeHtml(area.floorOrZone)} · ` : ''}${formatQty(areaInv.totalUnits)} total units · ${areaInv.stockedItemCount} stocked supply type${areaInv.stockedItemCount === 1 ? '' : 's'}${areaInv.naCount > 0 ? ` · ${areaInv.naCount} N/A` : ''}${area.notes ? ` · ${escapeHtml(area.notes)}` : ''}
           </p>
         </div>
         <div class="action-group">
@@ -590,7 +602,8 @@ function renderStorageAreaPanel(state, building, areaId, uiState) {
         <div class="pill-tabs">
           <button class="pill-tab ${filter === 'all' ? 'is-active' : ''}" data-action="set-area-filter" data-filter="all">All (${items.length})</button>
           <button class="pill-tab ${filter === 'stocked' ? 'is-active' : ''}" data-action="set-area-filter" data-filter="stocked">Stocked (${areaInv.stockedItemCount})</button>
-          <button class="pill-tab ${filter === 'alerts' ? 'is-active' : ''}" data-action="set-area-filter" data-filter="alerts">Empty / Low</button>
+          <button class="pill-tab ${filter === 'alerts' ? 'is-active' : ''}" data-action="set-area-filter" data-filter="alerts">Empty / Low (${emptyOrLowCount})</button>
+          <button class="pill-tab ${filter === 'na' ? 'is-active' : ''}" data-action="set-area-filter" data-filter="na">N/A (${areaInv.naCount})</button>
         </div>
       </div>
 
@@ -600,60 +613,93 @@ function renderStorageAreaPanel(state, building, areaId, uiState) {
             ? `<div style="grid-column: 1 / -1; text-align:center; padding: 28px; color: var(--ink-muted);">No matching supplies in this filter.</div>`
             : filteredItems
                 .map((row) => {
-                  const targetHint = row.hasAreaTargets
-                    ? `Closet Low ${row.lowThresholdOverride ?? '—'} / Par ${row.parLevelOverride ?? '—'}`
-                    : `Unit: ${row.item.unit}`;
+                  const targetHint = row.notApplicable
+                    ? 'Not applicable in this storage location'
+                    : row.hasAreaTargets
+                      ? `Closet Low ${row.lowThresholdOverride ?? '—'} / Par ${row.parLevelOverride ?? '—'}`
+                      : `Unit: ${row.item.unit}`;
+
+                  const statusBadge = row.notApplicable
+                    ? renderStatusPill('na')
+                    : row.hasAreaTargets || row.quantity === 0
+                      ? renderStatusPill(row.status)
+                      : `<span class="status-pill status-healthy">${escapeHtml(row.item.unit)}</span>`;
+
+                  const middleControls = row.notApplicable
+                    ? `<div class="closet-na-banner">
+                        <span>Not stored in this location</span>
+                        <button
+                          class="btn btn-sm"
+                          data-action="toggle-area-na"
+                          data-area-id="${escapeHtml(area.id)}"
+                          data-item-id="${escapeHtml(row.item.id)}"
+                          data-next-na="false"
+                        >
+                          Restore
+                        </button>
+                      </div>`
+                    : `<div class="closet-stepper-row">
+                        <button
+                          class="stepper-btn"
+                          data-action="step-stock"
+                          data-area-id="${escapeHtml(area.id)}"
+                          data-item-id="${escapeHtml(row.item.id)}"
+                          data-delta="-1"
+                          aria-label="Decrease ${escapeHtml(row.item.name)} by 1"
+                          ${row.quantity <= 0 ? 'disabled' : ''}
+                        >
+                          −
+                        </button>
+                        <div class="stepper-input-wrap">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            class="stepper-input"
+                            value="${formatQty(row.quantity)}"
+                            aria-label="${escapeHtml(row.item.name)} quantity in ${escapeHtml(area.name)}"
+                            data-stock-input="true"
+                            data-area-id="${escapeHtml(area.id)}"
+                            data-item-id="${escapeHtml(row.item.id)}"
+                          />
+                        </div>
+                        <button
+                          class="stepper-btn is-plus"
+                          data-action="step-stock"
+                          data-area-id="${escapeHtml(area.id)}"
+                          data-item-id="${escapeHtml(row.item.id)}"
+                          data-delta="1"
+                          aria-label="Increase ${escapeHtml(row.item.name)} by 1"
+                        >
+                          +
+                        </button>
+                      </div>`;
 
                   return `
-                  <article class="closet-item-card" data-area-item="${escapeHtml(row.item.id)}">
+                  <article class="closet-item-card ${row.notApplicable ? 'is-na' : ''}" data-area-item="${escapeHtml(row.item.id)}">
                     <div class="closet-item-head">
                       <div>
                         <div class="item-cell-title">${escapeHtml(row.item.name)}</div>
                         <div class="item-cell-meta">${escapeHtml(row.item.category)} · ${escapeHtml(targetHint)}</div>
                       </div>
-                      ${row.hasAreaTargets || row.quantity === 0 ? renderStatusPill(row.status) : `<span class="status-pill status-healthy">${escapeHtml(row.item.unit)}</span>`}
+                      ${statusBadge}
                     </div>
 
-                    <div class="closet-stepper-row">
-                      <button
-                        class="stepper-btn"
-                        data-action="step-stock"
-                        data-area-id="${escapeHtml(area.id)}"
-                        data-item-id="${escapeHtml(row.item.id)}"
-                        data-delta="-1"
-                        aria-label="Decrease ${escapeHtml(row.item.name)} by 1"
-                        ${row.quantity <= 0 ? 'disabled' : ''}
-                      >
-                        −
-                      </button>
-                      <div class="stepper-input-wrap">
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          class="stepper-input"
-                          value="${formatQty(row.quantity)}"
-                          aria-label="${escapeHtml(row.item.name)} quantity in ${escapeHtml(area.name)}"
-                          data-stock-input="true"
-                          data-area-id="${escapeHtml(area.id)}"
-                          data-item-id="${escapeHtml(row.item.id)}"
-                        />
-                      </div>
-                      <button
-                        class="stepper-btn is-plus"
-                        data-action="step-stock"
-                        data-area-id="${escapeHtml(area.id)}"
-                        data-item-id="${escapeHtml(row.item.id)}"
-                        data-delta="1"
-                        aria-label="Increase ${escapeHtml(row.item.name)} by 1"
-                      >
-                        +
-                      </button>
-                    </div>
+                    ${middleControls}
 
                     <div class="closet-item-foot">
                       <span>${row.updatedAt ? `Updated ${formatRelativeTime(row.updatedAt)}` : 'Not counted yet'}</span>
                       <div class="action-group" style="gap: 4px;">
+                        <button
+                          class="btn btn-ghost btn-sm ${row.notApplicable ? 'btn-na-active' : ''}"
+                          data-action="toggle-area-na"
+                          data-area-id="${escapeHtml(area.id)}"
+                          data-item-id="${escapeHtml(row.item.id)}"
+                          data-next-na="${row.notApplicable ? 'false' : 'true'}"
+                          title="${row.notApplicable ? 'Restore item in this storage location' : 'Mark item as N/A in this storage location'}"
+                        >
+                          ${row.notApplicable ? 'Undo N/A' : 'Mark N/A'}
+                        </button>
                         <button
                           class="btn btn-ghost btn-sm"
                           data-action="open-area-targets"
@@ -669,7 +715,7 @@ function renderStorageAreaPanel(state, building, areaId, uiState) {
                           data-from-area-id="${escapeHtml(area.id)}"
                           data-item-id="${escapeHtml(row.item.id)}"
                           title="Transfer ${escapeHtml(row.item.name)}"
-                          ${canTransfer && row.quantity > 0 ? '' : 'disabled'}
+                          ${canTransfer && !row.notApplicable && row.quantity > 0 ? '' : 'disabled'}
                         >
                           ${ICONS.transfer}
                         </button>

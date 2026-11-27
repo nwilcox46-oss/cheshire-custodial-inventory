@@ -309,6 +309,24 @@ document.addEventListener('click', async (event) => {
       break;
     }
 
+    case 'toggle-area-na': {
+      const nextNA = trigger.dataset.nextNa === 'true';
+      const state = store.getState();
+      const item = state.items.find((i) => i.id === trigger.dataset.itemId);
+      const area = state.storageAreas.find((a) => a.id === trigger.dataset.areaId);
+      store.setAreaNotApplicable({
+        storageAreaId: trigger.dataset.areaId,
+        itemId: trigger.dataset.itemId,
+        notApplicable: nextNA,
+      });
+      showToast(
+        nextNA
+          ? `Marked ${item?.name || 'item'} as N/A in ${area?.name || 'storage location'}.`
+          : `Restored ${item?.name || 'item'} in ${area?.name || 'storage location'}.`
+      );
+      break;
+    }
+
     case 'set-area-filter':
       uiState.areaItemFilter = trigger.dataset.filter;
       renderApp();

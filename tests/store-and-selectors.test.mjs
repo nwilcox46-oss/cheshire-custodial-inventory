@@ -213,3 +213,56 @@ test('getStockStatus returns accurate status levels across thresholds', () => {
   assert.equal(getStockStatus(6, 2, 6), 'healthy');
   assert.equal(getStockStatus(10, 2, 6), 'healthy');
 });
+
+test('marking an item N/A in storage locations updates area inventory, building rollups, restock lists, and backups', () => {
+  const store = makeStore();
+  const bldg = store.addBuilding({ name: 'Annex' });
+  const closetA = store.addStorageArea({ buildingId: bldg.id, name: 'Office Utility' });
+  const closetB = store.addStorageArea({ buildingId: bldg.id, name: 'Basement Closet' });
+
+  const bowlAcidId = 'item_bowl_acid';
+  store.setStock({ storageAreaId: closetA.id, itemId: bowlAcidId, quantity: 3 });
+
+  // Mark N/A in closet A: clears quantity, sets status to 'na', excludes from area alerts
+  store.setAreaNotApplicable({ storageAreaId: closetA.id, itemId: bowlAcidId, notApplicable: true });
+  let invA = getAreaInventory(store.getState(), closetA.id);
+  let rowA = invA.items.find((r) => r.item.id === bowlAcidId);
+  assert.equal(rowA.notApplicable, true);
+  assert.equal(rowA.quantity, 0);
+  assert.equal(rowA.status, 'na');
+  assert.equal(invA.naCount, 1);
+
+  // Building still tracks Bowl Acid because closetB is not N/A
+  let rollup = getBuildingRollup(store.getState(), bldg.id);
+  let bldgRow = rollup.items.find((r) => r.item.id === bowlAcidId);
+  assert.equal(bldgRow.allAreasNA, false);
+  assert.equal(bldgRow.areaBreakdown.find((a) => a.areaId === closetA.id).notApplicable, true);
+
+  // Mark N/A in closet B as well: entire building becomes N/A and excluded from restock summary
+  store.setAreaNotApplicable({ storageAreaId: closetB.id, itemId: bowlAcidId, notApplicable: true });
+  rollup = getBuildingRollup(store.getState(), bldg.id);
+  bldgRow = rollup.items.find((r) => r.item.id === bowlAcidId);
+  assert.equal(bldgRow.allAreasNA, true);
+  assert.equal(bldgRow.status, 'na');
+  assert.equal(bldgRow.restockNeeded, 0);
+  assert.equal(rollup.naCount, 1);
+
+  const restock = getRestockSummary(store.getState(), 'all');
+  assert.equal(
+    restock.masterOrderSheet.some((r) => r.item.id === bowlAcidId),
+    false
+  );
+
+  // JSON export/import roundtrip preserves notApplicable
+  const exported = store.exportStateJSON();
+  const store2 = makeStore();
+  store2.importStateJSON(exported);
+  const invA2 = getAreaInventory(store2.getState(), closetA.id);
+  assert.equal(invA2.items.find((r) => r.item.id === bowlAcidId).notApplicable, true);
+
+  // Restoring clears N/A flag
+  store2.setAreaNotApplicable({ storageAreaId: closetA.id, itemId: bowlAcidId, notApplicable: false });
+  const invA3 = getAreaInventory(store2.getState(), closetA.id);
+  assert.equal(invA3.items.find((r) => r.item.id === bowlAcidId).notApplicable, false);
+});
+

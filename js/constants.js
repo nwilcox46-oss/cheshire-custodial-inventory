@@ -128,4 +128,10 @@ export const STATUS_META = {
     severity: 0,
     description: 'At or above par level',
   },
+  na: {
+    label: 'N/A',
+    shortLabel: 'N/A',
+    severity: -1,
+    description: 'Not applicable in this storage location',
+  },
 };

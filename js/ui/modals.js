@@ -579,8 +579,15 @@ export function createModalController(dialogEl, store, { onToast, onNavigate }) 
         </div>
         <div class="modal-body">
           <div class="field-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.9rem;font-weight:600;color:var(--ink-primary);">
+              <input id="at-na" name="notApplicable" type="checkbox" ${entry.notApplicable ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--cheshire-rose);" />
+              <span>Mark as N/A (not stored in ${escapeHtml(area.name)})</span>
+            </label>
+            <span class="field-hint">Excludes this item from Empty/Low alerts in this storage location.</span>
+          </div>
+          <div class="field-group">
             <label class="field-label" for="at-qty">Exact Quantity (${escapeHtml(item.unit)})</label>
-            <input id="at-qty" name="quantity" type="number" min="0" step="any" class="input" value="${entry.quantity}" required />
+            <input id="at-qty" name="quantity" type="number" min="0" step="any" class="input" value="${entry.quantity}" ${entry.notApplicable ? 'disabled' : ''} required />
           </div>
           <div class="field-group">
             <label class="field-label" for="at-note">Adjustment Note (optional)</label>
@@ -591,11 +598,11 @@ export function createModalController(dialogEl, store, { onToast, onNavigate }) 
           <div class="field-row">
             <div class="field-group">
               <label class="field-label" for="at-low">Closet Low Alert</label>
-              <input id="at-low" name="lowThresholdOverride" type="number" min="0" step="any" class="input" placeholder="Optional" value="${entry.lowThresholdOverride ?? ''}" />
+              <input id="at-low" name="lowThresholdOverride" type="number" min="0" step="any" class="input" placeholder="Optional" value="${entry.lowThresholdOverride ?? ''}" ${entry.notApplicable ? 'disabled' : ''} />
             </div>
             <div class="field-group">
               <label class="field-label" for="at-par">Closet Par Target</label>
-              <input id="at-par" name="parLevelOverride" type="number" min="0" step="any" class="input" placeholder="Optional" value="${entry.parLevelOverride ?? ''}" />
+              <input id="at-par" name="parLevelOverride" type="number" min="0" step="any" class="input" placeholder="Optional" value="${entry.parLevelOverride ?? ''}" ${entry.notApplicable ? 'disabled' : ''} />
             </div>
           </div>
         </div>
@@ -610,22 +617,47 @@ export function createModalController(dialogEl, store, { onToast, onNavigate }) 
       `,
       (root) => {
         const form = root.querySelector('#form-area-targets');
+        const naCheckbox = root.querySelector('#at-na');
+        const qtyEl = root.querySelector('#at-qty');
+        const lowEl = root.querySelector('#at-low');
+        const parEl = root.querySelector('#at-par');
+
+        naCheckbox?.addEventListener('change', () => {
+          const isNA = naCheckbox.checked;
+          qtyEl.disabled = isNA;
+          lowEl.disabled = isNA;
+          parEl.disabled = isNA;
+        });
+
         form.addEventListener('submit', (e) => {
           e.preventDefault();
           const fd = new FormData(form);
-          store.setStock({
+          const isNA = Boolean(naCheckbox?.checked);
+          const note = fd.get('note');
+
+          store.setAreaNotApplicable({
             storageAreaId,
             itemId,
-            quantity: fd.get('quantity'),
-            note: fd.get('note'),
+            notApplicable: isNA,
+            note,
           });
-          store.setAreaTargets({
-            storageAreaId,
-            itemId,
-            lowThresholdOverride: fd.get('lowThresholdOverride'),
-            parLevelOverride: fd.get('parLevelOverride'),
-          });
-          onToast(`Saved ${item.name} in ${area.name}.`);
+
+          if (!isNA) {
+            store.setStock({
+              storageAreaId,
+              itemId,
+              quantity: fd.get('quantity'),
+              note,
+            });
+            store.setAreaTargets({
+              storageAreaId,
+              itemId,
+              lowThresholdOverride: fd.get('lowThresholdOverride'),
+              parLevelOverride: fd.get('parLevelOverride'),
+            });
+          }
+
+          onToast(isNA ? `Marked ${item.name} as N/A in ${area.name}.` : `Saved ${item.name} in ${area.name}.`);
           closeModal();
         });
       }
